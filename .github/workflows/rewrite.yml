@@ -4,7 +4,32 @@ on:
   workflow_dispatch:
 
 jobs:
-  ping:
+  rewrite:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "✅ Workflow registered successfully"
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: |
+          pip install requests python-slugify
+
+      - name: Run OpenAI rewrite script
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MAX_ITEMS: "2"     # per run 2 articles
+          PAUSE_SEC: "6"     # call ke beech 6 sec pause
+        run: |
+          python scripts/rewrite_drafts.py
+
+      - name: Commit rewritten drafts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add rewritten || true
+          git commit -m "Add rewritten drafts (OpenAI)" || echo "No new rewrites"
+          git push || echo "Push skipped"
