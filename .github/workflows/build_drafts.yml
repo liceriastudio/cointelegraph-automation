@@ -1,7 +1,7 @@
 name: Build Draft Articles
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   push:
     paths:
       - "output/*.json"
@@ -17,61 +17,13 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Make drafts from latest JSON
+      - name: Install deps
         run: |
           pip install python-slugify
-          mkdir -p drafts
-          python - <<'PY'
-          import json, os, glob, datetime
-          from slugify import slugify
 
-          files = sorted(glob.glob("output/*.json"))
-          if not files:
-              print("No JSON found"); raise SystemExit(0)
-          latest = files[-1]
-          data = json.load(open(latest, "r", encoding="utf-8"))
-
-          def md(article):
-              title = article.get("title","").strip()
-              link = article.get("link","").strip()
-              summary = article.get("summary","").strip()
-              now = datetime.datetime.utcnow().strftime("%Y-%m-%d")
-              slug = slugify(title)[:80] or slugify(link)[:80]
-              img_prompt = f"A clean modern illustration of: {title}. Abstract shapes, soft lighting, no logos/trademarks, editorial style."
-
-              body = f"""---
-title: "{title}"
-date: {now}
-slug: "{slug}"
-meta_description: "{summary[:150].replace('"','')}"
-tags: ["crypto","news"]
-source: "{link}"
-image_prompt: "{img_prompt}"
----
-
-## TL;DR
-- {summary[:200] or "Key points will be added after rewrite."}
-
-## Kya naya hai
-- (facts yahan add honge)
-
-## Background
-(short context)
-
-## Sources
-- {link}
-"""
-              return slug, body
-
-          made = 0
-          for a in data:
-              slug, body = md(a)
-              fn = f"drafts/{slug}.md"
-              if not os.path.exists(fn):
-                  open(fn,"w",encoding="utf-8").write(body)
-                  made += 1
-          print("Drafts created:", made)
-          PY
+      - name: Make drafts
+        run: |
+          python scripts/build_drafts.py
 
       - name: Commit drafts
         run: |
