@@ -20,6 +20,14 @@ jobs:
 
       - name: Run OpenAI rewrite script
         env:
+              - name: Run OpenAI rewrite script
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MAX_ITEMS: "2"     # per run 2 articles
+          PAUSE_SEC: "6"     # calls ke beech pause
+        run: |
+          python scripts/rewrite_drafts.py
+
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           python scripts/rewrite_drafts.py
