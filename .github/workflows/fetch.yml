@@ -1,0 +1,40 @@
+name: Cointelegraph Automation
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # runs every 15 minutes
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+      - name: Fetch RSS
+        run: |
+          pip install feedparser
+          mkdir -p output
+          python - <<'PY'
+          import feedparser, json, datetime, os
+          FEED="https://cointelegraph.com/rss"
+          data=feedparser.parse(FEED)
+          out=[]
+          for e in data.entries[:10]:
+              out.append({"title":e.title,"link":e.link,"summary":getattr(e,"summary","")})
+          ts=datetime.datetime.utcnow().strftime("%Y%m%d_%H%M")
+          fn=f"output/news_{ts}.json"
+          os.makedirs("output",exist_ok=True)
+          with open(fn,"w",encoding="utf-8") as f: json.dump(out,f,ensure_ascii=False,indent=2)
+          print("✅ File created:",fn)
+          PY
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add output || true
+          git commit -m "Add latest RSS data" || echo "No change"
+          git push || echo "Push skipped"
