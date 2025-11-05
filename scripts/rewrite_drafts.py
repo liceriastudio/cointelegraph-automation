@@ -1,7 +1,11 @@
-import os, glob, json, re, datetime, textwrap, requests
+import os, glob, json, re, time, datetime, requests, random
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+# Per-run limit (env se override ho sakta hai)
+MAX_ITEMS = int(os.environ.get("MAX_ITEMS", "2"))   # pehle 2 articles hi
+PAUSE_SEC  = float(os.environ.get("PAUSE_SEC", "6"))  # har call ke beech pause
 
 os.makedirs("rewritten", exist_ok=True)
 
@@ -13,10 +17,10 @@ def write(path, text):
     with open(path, "w", encoding="utf-8") as f:
         f.write(text)
 
-def call_openai(prompt):
+def call_openai_with_retry(prompt, retries=5):
     url = "https://api.openai.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
-    data = {
+    body = {
         "model": MODEL,
         "temperature": 0.7,
         "messages": [
@@ -27,9 +31,21 @@ def call_openai(prompt):
             {"role":"user","content": prompt}
         ]
     }
-    r = requests.post(url, headers=headers, json=data, timeout=120)
+    delay = PAUSE_SEC
+    for attempt in range(retries):
+        r = requests.post(url, headers=headers, json=body, timeout=120)
+        if r.status_code == 200:
+            return r.json()["choices"][0]["message"]["content"].strip()
+        # 429/5xx → backoff
+        if r.status_code in (429, 500, 502, 503, 504):
+            wait = delay * (2 ** attempt) + random.uniform(0, 1.0)
+            print(f"[WARN] HTTP {r.status_code}, retrying in {wait:.1f}s ...")
+            time.sleep(wait)
+            continue
+        r.raise_for_status()
+    # last try raise
     r.raise_for_status()
-    return r.json()["choices"][0]["message"]["content"].strip()
+    return ""
 
 def parse_frontmatter(md):
     if md.startswith("---"):
@@ -51,6 +67,10 @@ def main():
     files = sorted(glob.glob("drafts/*.md"))
     if not files:
         print("No drafts found"); return
+
+    # Sirf pehle MAX_ITEMS process
+    files = files[:MAX_ITEMS]
+
     total = 0
     for fp in files:
         md = read(fp)
@@ -66,7 +86,7 @@ DRAFT MARKDOWN BODY:
 {body}
 Please output ONLY the article HTML (no <html> wrapper)."""
 
-        html = call_openai(user_prompt)
+        html = call_openai_with_retry(user_prompt)
 
         out = {
             "title": title,
@@ -80,6 +100,10 @@ Please output ONLY the article HTML (no <html> wrapper)."""
         write(f"rewritten/{slug}.json", json.dumps(out, ensure_ascii=False, indent=2))
         total += 1
         print("Rewritten ->", slug)
+
+        # polite pace
+        time.sleep(PAUSE_SEC)
+
     print("Total:", total)
 
 if __name__ == "__main__":
