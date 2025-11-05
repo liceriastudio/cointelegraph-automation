@@ -1,0 +1,1 @@
+# cointelegraph-automation
