@@ -1,41 +1,10 @@
 name: Rewrite Drafts (OpenAI)
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 jobs:
-  rewrite:
+  ping:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.x"
-
-      - name: Install dependencies
-        run: |
-          pip install requests python-slugify
-
-      - name: Run OpenAI rewrite script
-        env:
-              - name: Run OpenAI rewrite script
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          MAX_ITEMS: "2"     # per run 2 articles
-          PAUSE_SEC: "6"     # calls ke beech pause
-        run: |
-          python scripts/rewrite_drafts.py
-
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          python scripts/rewrite_drafts.py
-
-      - name: Commit rewritten drafts
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add rewritten || true
-          git commit -m "Rewrite drafts with OpenAI" || echo "No changes"
-          git push || echo "Push skipped"
+      - run: echo "✅ Workflow registered successfully"
